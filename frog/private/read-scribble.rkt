@@ -91,11 +91,10 @@
           ;; and @subsection as <h4>, and so on. Hoist the headings up
           ;; to be consistent with the Markdown format sources.
           [`(h2 . ,x) `(h1 ,@x)]   ;elsewhere we special-case 1st h1
-          [`(h3 . ,x) `(h1 ,@x)]
-          [`(h4 . ,x) `(h2 ,@x)]
-          [`(h5 . ,x) `(h3 ,@x)]
-          [`(h6 . ,x) `(h4 ,@x)]
-          [`(h7 . ,x) `(h5 ,@x)]
+          [`(h3 . ,x) `(h2 ,@x)]
+          [`(h4 . ,x) `(h3 ,@x)]
+          [`(h5 . ,x) `(h4 ,@x)]
+          [`(h6 . ,x) `(h5 ,@x)]
           [`(p () "<" "!" ndash " more " ndash ">") `(!HTML-COMMENT () "more")]
           [x x])))
      x)))
