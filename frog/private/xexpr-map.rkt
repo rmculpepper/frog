@@ -1,10 +1,10 @@
 #lang racket/base
 
-(require racket/function
-         racket/list
+(require racket/list
          racket/match)
 
-(provide xexpr-map)
+(provide xexpr-map
+         xexpr-map*)
 
 ;; Does depth-first traversal of the xexpr `x`, calling `f` for each
 ;; sub-xexpr of `x` (including `x` itself).
@@ -32,19 +32,21 @@
 ;; handy.
 (define (xexpr-map f x)
   ;;((xexpr/c (listof xexpr/c) . -> . (listof xexpr/c)) xexpr/c . -> . xexpr/c)
-  (define (inner ps f x)
+  (match (xexpr-map* f (list x))
+    [(list e) e]
+    [r (error 'xexpr-map "got non-singleton result list: ~e" r)]))
+
+(define (xexpr-map* f xs)
+  ;; ((xexpr/c (listof xexpr/c) . -> . (listof xexpr/c)) (listof xexpr/c) . -> . (listof xexpr/c))
+  (define ((inner ps) x)
     (match x
       ;; xexpr with explicit attributes (even if just '())
       [`(,(? symbol? tag) ([,(? symbol? ks) ,(? string? vs)] ...) . ,es)
-       (f `(,tag
-            ,(map list ks vs)
-            ,@(append* (map (curry inner (cons x ps) f)
-                            es)))
-          ps)]
+       (f `(,tag ,(map list ks vs) ,@(append* (map (inner (cons x ps)) es))) ps)]
       ;; xexpr with no attributes: transform to empty list
-      [`(,(? symbol? tag) . ,es) (inner ps f `(,tag () ,@es))]
+      [`(,(? symbol? tag) . ,es) ((inner ps) `(,tag () ,@es))]
       [x (f x ps)]))
-  (append* (inner '() f x)))
+  (append* (map (inner '()) xs)))
 
 (module+ test
   (require rackunit)
