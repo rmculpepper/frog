@@ -50,19 +50,6 @@
   (match (~> (build-path dir "frog.html")
              (with-input-from-file read-html-as-xexprs)
              cadr)
-    ; HTML produced from #scribble/manual
-    [`(html
-       ()
-       (head . ,_)
-       ,(list-no-order
-         `(div ([class "maincolumn"])
-               (div ([class "main"])
-                    (div ([class "versionbox"])
-                         (span ([class "versionNoNav"]) ,_))
-                    . ,xs))
-         _ ...))
-     (adjust-scribble-html xs img-uri)]
-    ; HTML produced from #scribble/base
     [`(html
        ()
        (head . ,_)
@@ -78,26 +65,32 @@
      '()]))
 
 (define (adjust-scribble-html xs img-uri)
-  (for/list ([x (in-list xs)])
-    (xexpr-map
-     (lambda (x _)
-       (list
-        (match x
-          [`(blockquote ([class "SCodeFlow"]) . ,xs)
-           `(div ([class "SCodeFlow"]) ,@xs)]
-          [`(img ,(list-no-order `[src ,src] x ...))
-           `(img ([src ,(~a img-uri "/" src)] ,@x))]
-          ;; Scribble @title is rendered as <h2>, @section as <h3>,
-          ;; and @subsection as <h4>, and so on. Hoist the headings up
-          ;; to be consistent with the Markdown format sources.
-          [`(h2 . ,x) `(h1 ,@x)]   ;elsewhere we special-case 1st h1
-          [`(h3 . ,x) `(h2 ,@x)]
-          [`(h4 . ,x) `(h3 ,@x)]
-          [`(h5 . ,x) `(h4 ,@x)]
-          [`(h6 . ,x) `(h5 ,@x)]
-          [`(p () "<" "!" ndash " more " ndash ">") `(!HTML-COMMENT () "more")]
-          [x x])))
-     x)))
+  ;; (-> (listof xexpr?) string? (listof xexpr?))
+  (xexpr-map*
+   (lambda (x _)
+     (match x
+       ;; Delete version and elements produced by @title, @author
+       [`(div ([class "versionbox"]) . ,_) '()]
+       [`(div ([class "SAuthorListBox"]) . ,_) '()]
+       [`(h2 . ,_) '()]
+       ;; Convert blockquotes (???)
+       [`(blockquote ([class "SCodeFlow"]) . ,xs)
+        `[(div ([class "SCodeFlow"]) ,@xs)]]
+       ;; Adjust image source URLs
+       [`(img ,(list-no-order `[src ,src] x ...))
+        `[(img ([src ,(~a img-uri "/" src)] ,@x))]]
+       ;; Adjust headers:
+       ;; Scribble @title is rendered as <h2>, @section as <h3>,
+       ;; and @subsection as <h4>, and so on. Hoist the headings up
+       ;; to be consistent with the Markdown format sources.
+       ;; (that is, @section as <h2>, @subsection as <h3>, etc).
+       [`(h3 . ,x) `[(h2 ,@x)]]
+       [`(h4 . ,x) `[(h3 ,@x)]]
+       [`(h5 . ,x) `[(h4 ,@x)]]
+       [`(h6 . ,x) `[(h5 ,@x)]]
+       [`(p () "<" "!" ndash " more " ndash ">") `[(!HTML-COMMENT () "more")]]
+       [x (list x)]))
+   xs))
 
 (module+ test
   (let ([path (make-temporary-file)]
