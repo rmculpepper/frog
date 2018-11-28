@@ -4,6 +4,7 @@
          racket/contract/base
          racket/contract/region
          racket/file
+         racket/path
          racket/format
          (only-in racket/list empty?)
          racket/match
@@ -45,39 +46,49 @@
 (define/contract (read-post path)
   (path? . -> . (or/c post? #f))
   ;; Read Markdown, Markdown Template, Scribble, or HTML(ish) file
+  (define-values (path-to name __) (split-path path))
+  (prn1 "Reading ~a" (abs->rel/src path))
+  (match (path->string name)
+    [(pregexp "\\.scrbl$")
+     (finish-read-post path (read-scribble-post path))]
+    [(pregexp "\\.html$")
+     (define same.scrbl (path-replace-suffix path ".scrbl"))
+     (cond [(file-exists? same.scrbl)
+            (prn0 "Skipping ~a on the assumption it is a DrRacket preview output for ~a."
+                  (abs->rel/src path)
+                  (abs->rel/src same.scrbl))
+            #f]
+           [else
+            (finish-read-post path (read-html-file path))])]
+    [(pregexp "\\.(?:md|markdown)$")
+     ;; Footnote prefix is date & name w/o ext
+     ;; e.g. "2010-01-02-a-name"
+     (define footnote-prefix (string->symbol (post-path->prefix name)))
+     (finish-read-post path (parse-markdown path footnote-prefix))]
+    [(pregexp "\\.mdt$")
+     (define footnote-prefix (string->symbol (post-path->prefix name)))
+     (define text (render-template path-to (path->string name) '()))
+     (finish-read-post path (parse-markdown text footnote-prefix))]))
+
+;; post-path->prefix : PathString -> String
+(define (post-path->prefix name)
+  (match (path->string (file-name-from-path name))
+    [(pregexp post-file-px (list _ dt nm))
+     (format "~a-~a" dt nm)]))
+
+;; read-scribble-post : Path String String -> Post
+(define (read-scribble-post path)
+  (define img-dest (build-path (www/img-path) "posts" (post-path->prefix path)))
+  (read-scribble-file path
+                      #:img-local-path img-dest
+                      #:img-uri-prefix (canonical-uri (abs->rel/www img-dest))))
+
+;; finish-read-post : Path (Listof XExpr) -> (U Post #f)
+(define (finish-read-post path xs)
+  (define name (file-name-from-path path))
+  ;; Split to the meta-data and the body
+  (match-define (list title date-str tags body) (meta-data xs name))
   (let/ec return
-    (define-values (path-to name __) (split-path path))
-    (match-define (pregexp post-file-px (list _ dt nm)) (path->string name))
-    (prn1 "Reading ~a" (abs->rel/src path))
-    (define xs
-      (match (path->string name)
-        [(pregexp "\\.scrbl$")
-         (define img-dest (build-path (www/img-path)
-                                      "posts"
-                                      (~a dt "-" nm)))
-         (read-scribble-file path
-                             #:img-local-path img-dest
-                             #:img-uri-prefix (canonical-uri
-                                               (abs->rel/www img-dest)))]
-        [(pregexp "\\.html$")
-         (define same.scrbl (path-replace-suffix path ".scrbl"))
-         (when (file-exists? same.scrbl)
-           (prn0 "Skipping ~a on the assumption it is a DrRacket preview output for ~a."
-                 (abs->rel/src path)
-                 (abs->rel/src same.scrbl))
-           (return #f))
-         (read-html-file path)]
-        [(pregexp "\\.(?:md|markdown)$")
-         ;; Footnote prefix is date & name w/o ext
-         ;; e.g. "2010-01-02-a-name"
-         (define footnote-prefix (~> (~a dt "-" nm) string->symbol))
-         (parse-markdown path footnote-prefix)]
-        [(pregexp "\\.mdt$")
-         (define footnote-prefix (~> (~a dt "-" nm) string->symbol))
-         (define text (render-template path-to (path->string name) '()))
-         (parse-markdown text footnote-prefix)]))
-    ;; Split to the meta-data and the body
-    (match-define (list title date-str tags body) (meta-data xs name))
     (when (member "DRAFT" tags)
       (prn0 "Skipping ~a because it has the tag, 'DRAFT'"
             (abs->rel/src path))
