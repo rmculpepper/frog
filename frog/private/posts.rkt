@@ -3,6 +3,7 @@
 (require markdown
          racket/contract/base
          racket/contract/region
+         racket/sequence
          racket/file
          racket/path
          racket/format
@@ -125,6 +126,24 @@
              ": Date metadata must be ISO-8601 format -- yyyy-mm-ddThr:mn:sc -- but is")
          s))])
     (date->date-struct s)))
+
+;; A MetaHash is Hash[String => String]; keys are not validated, values not parsed.
+
+;; read-meta-data : (U 'spaces 'comment) InputPort -> MetaHash
+;; Returns a hash of the meta-data found and consumes it from the input port.
+(define (read-meta-data mode in)
+  (define meta-rx
+    (case mode
+      [(spaces) #rx"^[ ]*(.+?): *(.*?) *$"]
+      [(comment) #rx"^[ ]*;+[ ]*(.+?): *(.*?) *$"]))
+  ;; parse-meta-line : String -> (U (List String String) #f)
+  (define (parse-meta-line line)
+    (cond [(regexp-match meta-rx line) => cdr] [else #f]))
+  (define (in-parsed-meta-lines in)
+    (stop-before (sequence-map parse-meta-line (in-lines in)) not))
+  (for/fold ([h (hash)]) ([kv (in-parsed-meta-lines (peeking-input-port in))])
+    (void (read-line in)) ;; consume the peeked line
+    (match kv [(list k v) (hash-set h k v)])))
 
 ;; check-meta-data : PathString MetaHash -> (list String String (Listof String))
 ;; Check required keys and parse values (ie, split and wrap authors and tags).
