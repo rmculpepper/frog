@@ -66,11 +66,11 @@
      ;; Footnote prefix is date & name w/o ext
      ;; e.g. "2010-01-02-a-name"
      (define footnote-prefix (string->symbol (post-path->prefix name)))
-     (finish-read-post path (parse-markdown path footnote-prefix))]
+     (read-markdown-post path #f footnote-prefix)]
     [(pregexp "\\.mdt$")
      (define footnote-prefix (string->symbol (post-path->prefix name)))
      (define text (render-template path-to (path->string name) '()))
-     (finish-read-post path (parse-markdown text footnote-prefix))]))
+     (read-markdown-post path text footnote-prefix)]))
 
 ;; post-path->prefix : PathString -> String
 (define (post-path->prefix name)
@@ -84,6 +84,17 @@
   (read-scribble-file path
                       #:img-local-path img-dest
                       #:img-uri-prefix (canonical-uri (abs->rel/www img-dest))))
+
+;; read-markdown-post : Path (U String #f) String -> (U Post #f)
+(define (read-markdown-post path maybe-text footnote-prefix)
+  (define (handle-src in)
+    (define meta-h (read-meta-data 'spaces in))
+    (values meta-h (port->string in)))
+  (define-values (meta-h body-text)
+    (cond [maybe-text (handle-src (open-input-string maybe-text))]
+          [else (call-with-input-file* path handle-src)]))
+  (define xs (parse-markdown body-text footnote-prefix))
+  (finish-read-post path xs meta-h))
 
 ;; finish-read-post : Path (Listof XExpr) [MetaHash] -> (U Post #f)
 (define (finish-read-post path xs [meta-h #f])
