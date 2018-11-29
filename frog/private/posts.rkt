@@ -126,6 +126,27 @@
          s))])
     (date->date-struct s)))
 
+;; check-meta-data : PathString MetaHash -> (list String String (Listof String))
+;; Check required keys and parse values (ie, split and wrap authors and tags).
+(define (check-meta-data path h)
+  (define (required k)
+    (define (fail [pre ""])
+      (raise-user-error 'error "~a: Missing ~arequired metadata ~v" path pre k))
+    (match (string-trim (hash-ref h k fail))
+      ["" (fail "non-blank ")]
+      [v  v]))
+  (define (optional k)
+    (hash-ref h k ""))
+  (for ([(k v) (in-hash h)] #:unless (member k '("Title" "Date" "Tags" "Authors")))
+    (prn0 (format "~a: Ignoring unknown metadata: ~v = ~v" path k v)))
+  (list (required "Title")
+        (required "Date" )
+        (append (~>> (optional "Tags")
+                     tag-string->tags)
+                (~>> (optional "Authors")
+                     tag-string->tags
+                     (map make-author-tag)))))
+
 ;; (listof xexpr?) path? -> (list string? string? (listof string?) (listof xexpr?))
 (define (meta-data xs path)
   (define (err x)
@@ -148,22 +169,7 @@
             #:when (member k '("Title" "Date" "Tags" "Authors"))
             (hash-set h k v)]
            [s (warn s) h])))
-     (define (required k)
-       (define (fail [pre ""])
-         (err (format "missing ~a~v" pre k)))
-       (match (string-trim (hash-ref h k fail))
-         ["" (fail "non-blank ")]
-         [v  v]))
-     (define (optional k)
-       (hash-ref h k ""))
-     (list (required "Title")
-           (required "Date" )
-           (append (~>> (optional "Tags")
-                        tag-string->tags)
-                   (~>> (optional "Authors")
-                        tag-string->tags
-                        (map make-author-tag)))
-           more)]
+     (append (check-meta-data path h) (list more))]
     [(cons x _) (err (~a "found:\n" (format "~v" x)))]
     [_ (err "none found")]))
 
