@@ -85,11 +85,13 @@
                       #:img-local-path img-dest
                       #:img-uri-prefix (canonical-uri (abs->rel/www img-dest))))
 
-;; finish-read-post : Path (Listof XExpr) -> (U Post #f)
-(define (finish-read-post path xs)
+;; finish-read-post : Path (Listof XExpr) [MetaHash] -> (U Post #f)
+(define (finish-read-post path xs [meta-h #f])
   (define name (file-name-from-path path))
-  ;; Split to the meta-data and the body
-  (match-define (list title date-str tags body) (meta-data xs name))
+  ;; If meta-h is #f, extract meta-data from body
+  (match-define (list title date-str tags body)
+    (cond [meta-h (append (check-meta-data path meta-h) (list xs))]
+          [else (meta-data xs name)]))
   (let/ec return
     (when (member "DRAFT" tags)
       (prn0 "Skipping ~a because it has the tag, 'DRAFT'"
