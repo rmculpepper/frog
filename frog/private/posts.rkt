@@ -117,13 +117,10 @@
         (values meta-h body-xs))))
   (finish-read-post path body-xs meta-h))
 
-;; finish-read-post : Path (Listof XExpr) [MetaHash] -> (U Post #f)
-(define (finish-read-post path xs [meta-h #f])
+;; finish-read-post : Path (Listof XExpr) MetaHash -> (U Post #f)
+(define (finish-read-post path body meta-h)
   (define name (file-name-from-path path))
-  ;; If meta-h is #f, extract meta-data from body
-  (match-define (list title date-str tags body)
-    (cond [meta-h (append (check-meta-data path meta-h) (list xs))]
-          [else (meta-data xs name)]))
+  (match-define (list title date-str tags) (check-meta-data path meta-h))
   (let/ec return
     (when (member "DRAFT" tags)
       (prn0 "Skipping ~a because it has the tag, 'DRAFT'"
