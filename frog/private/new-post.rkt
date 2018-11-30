@@ -56,11 +56,10 @@
       })
 
 (define (new-scribble title date)
-  @~a{#lang scribble/manual
-
-      Title: @title
-      Date: @date
-      Tags: DRAFT
+  @~a{;; Title: @title
+      ;; Date: @date
+      ;; Tags: DRAFT
+      #lang scribble/manual
 
       Replace this with your post text. Add one or more comma-separated
       Tags above. The special tag `DRAFT` will prevent the post from being
