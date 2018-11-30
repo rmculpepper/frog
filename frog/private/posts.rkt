@@ -61,7 +61,7 @@
                   (abs->rel/src same.scrbl))
             #f]
            [else
-            (finish-read-post path (read-html-file path))])]
+            (read-html-post path)])]
     [(pregexp "\\.(?:md|markdown)$")
      ;; Footnote prefix is date & name w/o ext
      ;; e.g. "2010-01-02-a-name"
@@ -106,6 +106,16 @@
           [else (call-with-input-file* path handle-src)]))
   (define xs (parse-markdown body-text footnote-prefix))
   (finish-read-post path xs meta-h))
+
+;; read-html-post : Path -> (U Post #f)
+(define (read-html-post path)
+  (define-values (meta-h body-xs)
+    (call-with-input-file* path
+      (lambda (in)
+        (define meta-h (read-meta-data 'spaces in))
+        (define body-xs (cddr (read-html-as-xexprs in)))
+        (values meta-h body-xs))))
+  (finish-read-post path body-xs meta-h))
 
 ;; finish-read-post : Path (Listof XExpr) [MetaHash] -> (U Post #f)
 (define (finish-read-post path xs [meta-h #f])
@@ -309,14 +319,6 @@
   (check-true (more-xexpr? `(p " <!-- more -->")))
   (check-true (more-xexpr? `(p "<!--  more  -->")))
   (check-false (more-xexpr? "not more")))
-
-(define (read-html-file path)
-  (match (file->string path)
-    [(pregexp "^(\\s{4}Title:.*?\n\\s{4}Date:.*?\n\\s{4}Tags:.*?\n+)\\s*(.*)$"
-              (list _ md html))
-     (append (parse-markdown md)
-             (~>> (with-input-from-string html read-html-as-xexprs)
-                  cddr))]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
