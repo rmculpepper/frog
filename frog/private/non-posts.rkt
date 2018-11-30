@@ -64,10 +64,12 @@
       (~> (match (path->string name)
             [(pregexp "\\.scrbl$")
              (define img-dest (path-replace-suffix dest-path ""))
-             (read-scribble-file path
-                                 #:img-local-path img-dest
-                                 #:img-uri-prefix (canonical-uri
-                                                   (abs->rel/www img-dest)))]
+             (define-values (xs _meta-h)
+               (read-scribble-file path
+                                   #:img-local-path img-dest
+                                   #:img-uri-prefix (canonical-uri
+                                                     (abs->rel/www img-dest))))
+             xs]
             [(pregexp "\\.(?:md|markdown)$")
              (parse-markdown path)]
             [(pregexp "\\.mdt$")

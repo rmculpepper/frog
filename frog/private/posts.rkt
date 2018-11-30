@@ -52,7 +52,7 @@
   (prn1 "Reading ~a" (abs->rel/src path))
   (match (path->string name)
     [(pregexp "\\.scrbl$")
-     (finish-read-post path (read-scribble-post path))]
+     (read-scribble-post path)]
     [(pregexp "\\.html$")
      (define same.scrbl (path-replace-suffix path ".scrbl"))
      (cond [(file-exists? same.scrbl)
@@ -81,9 +81,20 @@
 ;; read-scribble-post : Path String String -> Post
 (define (read-scribble-post path)
   (define img-dest (build-path (www/img-path) "posts" (post-path->prefix path)))
-  (read-scribble-file path
-                      #:img-local-path img-dest
-                      #:img-uri-prefix (canonical-uri (abs->rel/www img-dest))))
+  (define prefix-meta-h
+    (call-with-input-file* path (lambda (in) (read-meta-data 'comment in))))
+  (define-values (xs scribble-meta-h)
+    (read-scribble-file path
+                        #:img-local-path img-dest
+                        #:img-uri-prefix (canonical-uri (abs->rel/www img-dest))))
+  ;; Meta-data sources and precedence:
+  ;; - If prefix is non-empty, then use prefix then scribble.
+  ;; - If prefix is empty, then use body (old style) then scribble.
+  (cond [(not (hash-empty? prefix-meta-h))
+         (finish-read-post path xs (merge-meta-data prefix-meta-h scribble-meta-h))]
+        [else
+         (define-values (body-meta-h xs*) (meta-data-from-body path xs))
+         (finish-read-post path xs* (merge-meta-data body-meta-h scribble-meta-h))]))
 
 ;; read-markdown-post : Path (U String #f) String -> (U Post #f)
 (define (read-markdown-post path maybe-text footnote-prefix)

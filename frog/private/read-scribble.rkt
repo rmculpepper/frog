@@ -5,11 +5,13 @@
          racket/file
          racket/format
          racket/match
+         racket/string
          racket/pretty
          threading
          (only-in xml xexpr?)
          "html.rkt"
          "util.rkt"
+         "xexpr2text.rkt"
          "xexpr-map.rkt")
 
 (provide read-scribble-file)
@@ -20,7 +22,8 @@
 (define/contract (read-scribble-file path
                                      #:img-local-path img-dir
                                      #:img-uri-prefix img-uri)
-  (path? #:img-local-path path? #:img-uri-prefix string? . -> . (listof xexpr?))
+  (-> path? #:img-local-path path? #:img-uri-prefix string?
+      (values (listof xexpr?) hash?))
   ;; This way of running Scribble is cribbed from Ryan Culpepper's
   ;; Scriblogify:
   (define dir (path->string (make-temporary-file "frog~a" 'directory)))
@@ -62,35 +65,53 @@
     [x
      (displayln "Bad Scribble post:")
      (pretty-print x)
-     '()]))
+     (values '() #hash())]))
 
 (define (adjust-scribble-html xs img-uri)
-  ;; (-> (listof xexpr?) string? (listof xexpr?))
-  (xexpr-map*
-   (lambda (x _)
-     (match x
-       ;; Delete version and elements produced by @title, @author
-       [`(div ([class "versionbox"]) . ,_) '()]
-       [`(div ([class "SAuthorListBox"]) . ,_) '()]
-       [`(h2 . ,_) '()]
-       ;; Convert blockquotes (???)
-       [`(blockquote ([class "SCodeFlow"]) . ,xs)
-        `[(div ([class "SCodeFlow"]) ,@xs)]]
-       ;; Adjust image source URLs
-       [`(img ,(list-no-order `[src ,src] x ...))
-        `[(img ([src ,(~a img-uri "/" src)] ,@x))]]
-       ;; Adjust headers:
-       ;; Scribble @title is rendered as <h2>, @section as <h3>,
-       ;; and @subsection as <h4>, and so on. Hoist the headings up
-       ;; to be consistent with the Markdown format sources.
-       ;; (that is, @section as <h2>, @subsection as <h3>, etc).
-       [`(h3 . ,x) `[(h2 ,@x)]]
-       [`(h4 . ,x) `[(h3 ,@x)]]
-       [`(h5 . ,x) `[(h4 ,@x)]]
-       [`(h6 . ,x) `[(h5 ,@x)]]
-       [`(p () "<" "!" ndash " more " ndash ">") `[(!HTML-COMMENT () "more")]]
-       [x (list x)]))
-   xs))
+  ;; (-> (listof xexpr?) string? hash? (values (listof xexpr?) hash?))
+  (define meta-h #hash()) ;; mutated
+  (define xs*
+    (xexpr-map*
+     (lambda (x _)
+       (match x
+         ;; Delete version
+         [`(div ([class "versionbox"]) . ,_) '()]
+         ;; Override author if @author was used and delete element
+         [`(div ([class "SAuthorListBox"]) . ,_)
+          (match x
+            [`(div ([class "SAuthorListBox"])
+               (span ([class "SAuthorList"]) . ,_)
+               ,@(list `(p ([class "author"]) ,(? string? authors))
+                       ...))
+             (set! meta-h (hash-set meta-h "Authors" (string-join authors ", ")))]
+            [_ (void)])
+          '()]
+         ;; Override title if @title was used and delete element
+         [`(h2 . ,_)
+          (match x
+            [`(h2 () (a . ,_) ,@title-xs)
+             (set! meta-h (hash-set meta-h "Title" (xexpr->markdown `(span () ,@title-xs))))]
+            [_ (void)])
+          '()]
+         ;; Convert blockquotes (???)
+         [`(blockquote ([class "SCodeFlow"]) . ,xs)
+          `[(div ([class "SCodeFlow"]) ,@xs)]]
+         ;; Adjust image source URLs
+         [`(img ,(list-no-order `[src ,src] x ...))
+          `[(img ([src ,(~a img-uri "/" src)] ,@x))]]
+         ;; Adjust headers:
+         ;; Scribble @title is rendered as <h2>, @section as <h3>,
+         ;; and @subsection as <h4>, and so on. Hoist the headings up
+         ;; to be consistent with the Markdown format sources.
+         ;; (that is, @section as <h2>, @subsection as <h3>, etc).
+         [`(h3 . ,x) `[(h2 ,@x)]]
+         [`(h4 . ,x) `[(h3 ,@x)]]
+         [`(h5 . ,x) `[(h4 ,@x)]]
+         [`(h6 . ,x) `[(h5 ,@x)]]
+         [`(p () "<" "!" ndash " more " ndash ">") `[(!HTML-COMMENT () "more")]]
+         [x (list x)]))
+     xs))
+  (values xs* meta-h))
 
 (module+ test
   (let ([path (make-temporary-file)]
