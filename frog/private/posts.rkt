@@ -7,6 +7,7 @@
          racket/file
          racket/path
          racket/format
+         racket/hash
          (only-in racket/list empty?)
          racket/match
          racket/port
@@ -128,6 +129,11 @@
     (date->date-struct s)))
 
 ;; A MetaHash is Hash[String => String]; keys are not validated, values not parsed.
+
+;; merge-meta-data : MetaHash ...+ -> MetaHash
+;; Merges metadata; each key get value from *leftmost* hash that has a value for it.
+(define (merge-meta-data mh . mhs)
+  (apply hash-union mh mhs #:combine (lambda (a b) a)))
 
 ;; read-meta-data : (U 'spaces 'comment) InputPort -> MetaHash
 ;; Returns a hash of the meta-data found and consumes it from the input port.
