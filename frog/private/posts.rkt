@@ -172,8 +172,8 @@
                      tag-string->tags
                      (map make-author-tag)))))
 
-;; (listof xexpr?) path? -> (list string? string? (listof string?) (listof xexpr?))
-(define (meta-data xs path)
+;; meta-data-from-body : PathString (Listof XExpr) -> (values MetaHash (Listof XExpr))
+(define (meta-data-from-body path xs)
   (define (err x)
     (raise-user-error 'error "~a: Must start with metadata but ~a" path x))
   (define (warn x)
@@ -194,9 +194,14 @@
             #:when (member k '("Title" "Date" "Tags" "Authors"))
             (hash-set h k v)]
            [s (warn s) h])))
-     (append (check-meta-data path h) (list more))]
+     (values h more)]
     [(cons x _) (err (~a "found:\n" (format "~v" x)))]
     [_ (err "none found")]))
+
+;; (listof xexpr?) path? -> (list string? string? (listof string?) (listof xexpr?))
+(define (meta-data xs path)
+  (define-values (meta-h more) (meta-data-from-body path xs))
+  (append (check-meta-data path meta-h) (list more)))
 
 (module+ test
   (define p (string->path "/path/to/file"))
