@@ -1,6 +1,6 @@
 #lang racket/base
 (require reprovide/reprovide
-         "private/load-config.rkt")
+         (except-in "private/load-config.rkt" load))
 
 (reprovide racket/base
            racket/contract/base
@@ -9,3 +9,6 @@
            "params.rkt"
            "paths.rkt"
            "enhance-body.rkt")
+
+(module reader syntax/module-reader
+  frog/config)
