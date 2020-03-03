@@ -18,7 +18,6 @@
          (prefix-in user-frog.rkt: "load-config.rkt")
          "new-post.rkt"
          "non-posts.rkt"
-         "upgrade/old-config.rkt"
          "params.rkt"
          "paths.rkt"
          "post-struct.rkt"
@@ -64,7 +63,6 @@
              #t]
             [else #f]))
     (unless help?
-      (maybe-frogrc->frog.rkt (top))
       (user-frog.rkt:load (top))
       (user-frog.rkt:init))
     (define watch? #f)
