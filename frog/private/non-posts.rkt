@@ -6,7 +6,7 @@
          racket/path
          racket/string
          threading
-         "../config/private/load.rkt"
+         "load-config.rkt"
          "bodies-page.rkt"
          "paths.rkt"
          "post-struct.rkt"

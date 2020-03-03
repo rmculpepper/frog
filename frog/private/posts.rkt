@@ -14,7 +14,7 @@
          racket/string
          threading
          (only-in srfi/1 break)
-         "../config/private/load.rkt"
+         "load-config.rkt"
          "author.rkt"
          "bodies-page.rkt"
          "html.rkt"
