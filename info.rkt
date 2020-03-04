@@ -6,11 +6,11 @@
                "html-lib"
                ["markdown" #:version "0.25"]
                "racket-index"
-               "reprovide-lang"
+               "reprovide-lang-lib"
                "scribble-lib"
                "scribble-text-lib"
                "srfi-lite-lib"
-               "threading"
+               "threading-lib"
                "web-server-lib"))
 (define build-deps '("at-exp-lib"
                      "net-doc"
